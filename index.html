@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Archipelago Steam Checker</title>
+<meta name="description" content="Paste your Steam profile link to see which of your games have an Archipelago randomizer world.">
+<style>
+  :root{
+    --bg:#14151f; --panel:#1c1e2b; --panel2:#232637; --line:#2e3350;
+    --text:#e8eaf3; --dim:#9aa0bd; --accent:#a98bff; --accent2:#5fe3c3;
+    --ok:#5fe3c3; --warn:#ffcc66; --bad:#ff6b8a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 50% -10%,#241f3d 0%,var(--bg) 55%);
+    color:var(--text);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    min-height:100vh;padding:16px}
+  .wrap{max-width:920px;margin:0 auto}
+  header{text-align:center;padding:28px 0 8px}
+  h1{margin:0;font-size:30px;letter-spacing:-.5px;
+    background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{color:var(--dim);margin:8px 0 0;font-size:15px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin:18px 0}
+  .inrow{display:flex;gap:10px;flex-wrap:wrap}
+  input[type=text]{flex:1;min-width:220px;background:var(--panel2);border:1px solid var(--line);
+    color:var(--text);padding:12px 14px;border-radius:10px;font-size:15px;outline:none}
+  input[type=text]:focus{border-color:var(--accent)}
+  button{background:linear-gradient(90deg,var(--accent),#8f6cff);color:#120f22;border:0;
+    padding:12px 20px;border-radius:10px;font-weight:700;font-size:15px;cursor:pointer}
+  button:disabled{opacity:.55;cursor:default}
+  .hint{color:var(--dim);font-size:13px;margin:10px 2px 0}
+  .hint a{color:var(--accent2)}
+  .msg{padding:12px 14px;border-radius:10px;margin-top:12px;font-size:14px;display:none}
+  .msg.err{display:block;background:#3a1f2b;border:1px solid #6b2f44;color:#ffc3d0}
+  .msg.info{display:block;background:#1f2b3a;border:1px solid #2f4a6b;color:#bcd8ff}
+  #summary{display:none;text-align:center;margin:10px 0 0}
+  #summary .big{font-size:40px;font-weight:800;color:var(--accent2)}
+  #summary .of{color:var(--dim)}
+  .bar{height:10px;background:var(--panel2);border-radius:99px;overflow:hidden;margin:14px auto;max-width:420px}
+  .bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));width:0;transition:width .6s}
+  .controls{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:14px 0 0}
+  .seg{background:var(--panel2);border:1px solid var(--line);color:var(--dim);padding:7px 14px;border-radius:99px;cursor:pointer;font-size:13px}
+  .seg.on{background:var(--accent);color:#120f22;border-color:var(--accent);font-weight:700}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;margin-top:14px}
+  .game{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:11px 12px;display:flex;align-items:center;gap:10px}
+  .game.miss{opacity:.5}
+  .game .nm{flex:1;min-width:0;font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .game .nm a{color:inherit;text-decoration:none}
+  .game .nm a:hover{color:var(--accent2)}
+  .badge{font-size:10px;padding:2px 7px;border-radius:99px;font-weight:700;white-space:nowrap}
+  .b-stable{background:rgba(95,227,195,.15);color:var(--ok)}
+  .b-other{background:rgba(255,204,102,.15);color:var(--warn)}
+  .spin{display:none;text-align:center;color:var(--dim);padding:18px}
+  .spin.on{display:block}
+  .spin i{display:inline-block;width:22px;height:22px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:s .8s linear infinite;vertical-align:-5px;margin-right:8px}
+  @keyframes s{to{transform:rotate(360deg)}}
+  footer{text-align:center;color:var(--dim);font-size:12px;padding:24px 0}
+  footer a{color:var(--accent2)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Archipelago Steam Checker</h1>
+    <p class="sub">Paste your Steam profile link to see which of your games have an <b>Archipelago</b> world.</p>
+  </header>
+
+  <div class="card">
+    <form id="form" class="inrow" autocomplete="off">
+      <input type="text" id="url" placeholder="steamcommunity.com/id/yourname  (or your SteamID64)" aria-label="Steam profile link">
+      <button id="go" type="submit">Check</button>
+    </form>
+    <p class="hint">Your Steam <b>Game details</b> must be set to <b>Public</b> (Profile → Edit → Privacy). Nothing is saved — it all runs in your browser. <a href="https://docs.google.com/spreadsheets/d/1iuzDTOAvdoNe8Ne8i461qGNucg5OuEoF-Ikqs8aUQZw/htmlview" target="_blank" rel="noopener">AP games sheet ↗</a></p>
+    <div id="msg" class="msg"></div>
+    <div id="spin" class="spin"><i></i>Reading your library…</div>
+  </div>
+
+  <div id="results" class="card" style="display:none">
+    <div id="summary">
+      <div><span class="big" id="nOwned">0</span> <span class="of">of <span id="nTotal">0</span> Archipelago games</span></div>
+      <div class="bar"><i id="barFill"></i></div>
+    </div>
+    <div class="controls">
+      <span class="seg on" data-view="owned" id="segOwned">✅ You own</span>
+      <span class="seg" data-view="all" id="segAll">🎲 All AP games</span>
+    </div>
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <footer>
+    Fan tool · matches your public Steam library against the community Archipelago games sheet · auto-updates weekly.<br>
+    <a id="repo" href="#" target="_blank" rel="noopener">source on GitHub</a> · not affiliated with Steam or Archipelago
+  </footer>
+</div>
+
+<script>
+const PROXIES = [
+  u => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u),
+  u => "https://corsproxy.io/?url=" + encodeURIComponent(u),
+  u => "https://thingproxy.freeboard.io/fetch/" + u,
+];
+const $ = s => document.querySelector(s);
+function norm(s){
+  s=(s||"").toLowerCase().replace(/&/g," and ").replace(/[™®©]/g,"").replace(/[^a-z0-9]+/g," ").replace(/\s+/g," ").trim();
+  return s.startsWith("the ")?s.slice(4):s;
+}
+function showMsg(t,cls){const m=$("#msg");m.className="msg "+cls;m.innerHTML=t;}
+function clearMsg(){$("#msg").className="msg";}
+
+// Parse a pasted profile into the /games?xml=1 path
+function profilePath(raw){
+  raw=raw.trim().replace(/^https?:\/\//,"").replace(/\/+$/,"");
+  let m;
+  if((m=raw.match(/steamcommunity\.com\/(id|profiles)\/([^\/?#]+)/i))) return m[1].toLowerCase()+"/"+m[2];
+  if(/^\d{17}$/.test(raw)) return "profiles/"+raw;               // bare SteamID64
+  if((m=raw.match(/^(id|profiles)\/([^\/?#]+)/i))) return m[1].toLowerCase()+"/"+m[2];
+  if(/^[A-Za-z0-9_.-]{2,64}$/.test(raw)) return "id/"+raw;        // bare vanity name
+  return null;
+}
+
+async function fetchXML(path){
+  const target="https://steamcommunity.com/"+path+"/games/?tab=all&xml=1";
+  let lastErr;
+  for(const p of PROXIES){
+    try{
+      const r=await fetch(p(target),{cache:"no-store"});
+      if(!r.ok){lastErr="proxy "+r.status;continue;}
+      const txt=await r.text();
+      if(txt && txt.indexOf("<")>=0) return txt;
+      lastErr="empty";
+    }catch(e){lastErr=e.message;}
+  }
+  throw new Error(lastErr||"all proxies failed");
+}
+
+let AP=null, MATCH=null; // state
+
+async function loadAP(){
+  if(AP) return AP;
+  const d=await (await fetch("ap_games.json",{cache:"no-store"})).json();
+  const byNorm=new Map(), byAppid=new Map();
+  for(const g of d.games){ byNorm.set(g.norm,g); if(g.appid) byAppid.set(g.appid,g); }
+  AP={data:d,byNorm,byAppid}; return AP;
+}
+
+function render(view){
+  const grid=$("#grid"); grid.innerHTML="";
+  const ownedNorms=new Set(MATCH.map(g=>g.norm));
+  let list;
+  if(view==="owned"){ list=MATCH.slice(); }
+  else { list=AP.data.games.slice(); }
+  list.sort((a,b)=>a.name.localeCompare(b.name));
+  for(const g of list){
+    const owned=ownedNorms.has(g.norm);
+    const div=document.createElement("div");
+    div.className="game"+(owned?"":" miss");
+    const stable=(g.stability||"").toLowerCase()==="stable";
+    const appid=g.appid;
+    const nameHtml=appid?`<a href="https://store.steampowered.com/app/${appid}" target="_blank" rel="noopener">${esc(g.name)}</a>`:esc(g.name);
+    div.innerHTML=`<span style="font-size:15px">${owned?"✅":"🎲"}</span>
+      <span class="nm">${nameHtml}</span>
+      <span class="badge ${stable?'b-stable':'b-other'}">${esc(g.stability||'?')}</span>`;
+    grid.appendChild(div);
+  }
+}
+function esc(s){return (s||"").replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+function setView(v){
+  $("#segOwned").classList.toggle("on",v==="owned");
+  $("#segAll").classList.toggle("on",v==="all");
+  render(v);
+}
+
+async function run(e){
+  e.preventDefault();
+  clearMsg(); $("#results").style.display="none"; $("#go").disabled=true; $("#spin").classList.add("on");
+  try{
+    const path=profilePath($("#url").value);
+    if(!path){ showMsg("That doesn't look like a Steam profile link or ID. Try <code>steamcommunity.com/id/yourname</code>.","err"); return; }
+    const [xmlText]=await Promise.all([fetchXML(path)]);
+    const doc=new DOMParser().parseFromString(xmlText,"text/xml");
+    const err=doc.querySelector("error");
+    const gameEls=[...doc.querySelectorAll("games > game")];
+    if(gameEls.length===0){
+      showMsg((err?esc(err.textContent):"No games found.")+" — make sure your profile <b>and Game details</b> are set to <b>Public</b>, then try again.","err");
+      return;
+    }
+    const owned=gameEls.map(g=>({appid:+(g.querySelector("appID")?.textContent||0),name:g.querySelector("name")?.textContent||""}));
+    const ap=await loadAP();
+    const seen=new Set(); MATCH=[];
+    for(const og of owned){
+      let g=(og.appid&&ap.byAppid.get(og.appid))||ap.byNorm.get(norm(og.name));
+      if(g&&!seen.has(g.norm)){ seen.add(g.norm); MATCH.push(g); }
+    }
+    $("#nOwned").textContent=MATCH.length;
+    $("#nTotal").textContent=ap.data.count;
+    $("#barFill").style.width=Math.min(100,Math.round(MATCH.length/ap.data.count*100))+"%";
+    $("#summary").style.display="block";
+    $("#results").style.display="block";
+    setView("owned");
+    showMsg(`Read <b>${owned.length}</b> games from your library.`,"info");
+  }catch(ex){
+    showMsg("Couldn't read that profile ("+esc(ex.message)+"). The public CORS proxy may be busy — try again in a moment, or check the profile is public.","err");
+  }finally{
+    $("#go").disabled=false; $("#spin").classList.remove("on");
+  }
+}
+
+$("#form").addEventListener("submit",run);
+$("#segOwned").addEventListener("click",()=>setView("owned"));
+$("#segAll").addEventListener("click",()=>setView("all"));
+// repo link set at publish time via a build step would be nicer; leave generic
+$("#repo").href="https://github.com/Xshootakilll/steam-archipelago-checker";
+</script>
+</body>
+</html>

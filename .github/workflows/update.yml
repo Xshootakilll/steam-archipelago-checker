@@ -1,0 +1,35 @@
+name: Update AP games list
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"   # weekly, Mondays 06:00 UTC
+  workflow_dispatch: {}    # allow manual runs from the Actions tab
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-ap-list
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Rebuild ap_games.json (fetch sheet + Steam AppIDs)
+        run: python3 scripts/build_ap_list.py
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- ap_games.json; then
+            echo "No changes to ap_games.json."
+          else
+            git add ap_games.json
+            git commit -m "chore: refresh AP games list ($(date -u +%Y-%m-%d))"
+            git push
+          fi
