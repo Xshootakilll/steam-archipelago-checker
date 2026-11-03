@@ -166,19 +166,10 @@ bob"></textarea>
 </div>
 
 <script>
-// ONE free Steam Web API key (read-only, public data only). It's an opaque
-// string — it reveals nothing about whose key it is. If it ever gets abused,
-// regenerate it at https://steamcommunity.com/dev/apikey (one click).
-const STEAM_KEY = "BFFD5FFB720B995DA93B020F0E0F2883";
-const API = "https://api.steampowered.com";
-
-// api.steampowered.com sends no CORS headers, so browser calls go via a public
-// proxy. Tried in order; allorigins /get is a JSON-wrapped last resort.
-const PROXIES = [
-  u => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u),
-  u => "https://thingproxy.freeboard.io/fetch/" + u,
-  u => "https://api.allorigins.win/get?url=" + encodeURIComponent(u),
-];
+// All Steam reads go through a tiny Cloudflare Worker relay that holds the
+// Steam Web API key as a secret — no key in this page, and no flaky public
+// CORS proxies. Set this to your deployed Worker URL (no trailing slash).
+const RELAY = "https://ap-steam.xshootakilll.workers.dev";
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 function norm(s){
@@ -189,21 +180,18 @@ function esc(s){return (s||"").replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>'
 function showMsg(t,cls){const m=$("#msg");m.className="msg "+cls;m.innerHTML=t;}
 function clearMsg(){$("#msg").className="msg";}
 
-// Fetch a Steam Web API URL through whichever proxy answers; return parsed JSON.
-async function apiJSON(target){
+// Call a relay endpoint (e.g. "/owned?steamid=…") and return parsed JSON.
+async function relayJSON(path){
   let lastErr;
-  for(const p of PROXIES){
-    const isWrapped=p.toString().includes("/get?");
+  for(let attempt=0; attempt<2; attempt++){
     try{
-      const r=await fetch(p(target),{cache:"no-store"});
-      if(!r.ok){lastErr="proxy "+r.status;continue;}
-      let txt=await r.text();
-      if(isWrapped){ try{ txt=JSON.parse(txt).contents; }catch(e){ lastErr="unwrap failed"; continue; } }
+      const r=await fetch(RELAY+path,{cache:"no-store"});
+      const txt=await r.text();
       try{ return JSON.parse(txt); }
-      catch(e){ lastErr="bad response (proxy may be rate-limited)"; continue; }
+      catch(e){ lastErr="bad response from relay"; }
     }catch(e){ lastErr=e.message; }
   }
-  throw new Error(lastErr||"all proxies failed");
+  throw new Error(lastErr||"relay unreachable");
 }
 
 // Resolve a pasted profile (URL / vanity / SteamID64) to a SteamID64, or null.
@@ -216,12 +204,12 @@ async function resolveSteamID(raw){
   else if((m=raw.match(/^id\/([^\/?#]+)/i))) vanity=m[1];
   else if(/^[A-Za-z0-9_.-]{2,64}$/.test(raw)) vanity=raw;
   if(!vanity) return null;
-  const j=await apiJSON(`${API}/ISteamUser/ResolveVanityURL/v1/?key=${STEAM_KEY}&vanityurl=${encodeURIComponent(vanity)}`);
+  const j=await relayJSON(`/resolve?vanity=${encodeURIComponent(vanity)}`);
   return (j&&j.response&&j.response.success===1) ? j.response.steamid : null;
 }
 
 async function getOwnedGames(id64){
-  const j=await apiJSON(`${API}/IPlayerService/GetOwnedGames/v1/?key=${STEAM_KEY}&steamid=${id64}&include_appinfo=1&include_played_free_games=1&format=json`);
+  const j=await relayJSON(`/owned?steamid=${id64}`);
   return (j&&j.response&&j.response.games)||null; // null => private game details
 }
 
@@ -304,7 +292,7 @@ async function runSolo(e){
     $("#pickScope").style.display="none"; $("#pickResult").innerHTML=""; $("#picker").style.display="block";
     showMsg(`Read <b>${games.length}</b> games from your library — <b>${MATCH.length}</b> have Archipelago worlds.`,"info");
   }catch(ex){
-    showMsg("Couldn't read that profile ("+esc(ex.message)+"). The public CORS proxy may be busy — try again in a moment.","err");
+    showMsg("Couldn't read that profile ("+esc(ex.message)+"). Try again in a moment.","err");
   }finally{
     $("#goSolo").disabled=false; $("#spin").classList.remove("on");
   }
@@ -331,7 +319,7 @@ async function runGroup(e){
     const ids=players.filter(p=>p.id).map(p=>p.id);
     if(ids.length){
       try{
-        const s=await apiJSON(`${API}/ISteamUser/GetPlayerSummaries/v2/?key=${STEAM_KEY}&steamids=${ids.join(",")}`);
+        const s=await relayJSON(`/summaries?steamids=${ids.join(",")}`);
         const byId={}; for(const pl of ((s.response||{}).players||[])) byId[pl.steamid]=pl.personaname;
         for(const p of players){ if(p.id&&byId[p.id]) p.name=byId[p.id]; }
       }catch(ex){/* fall back to typed input as the name */}
@@ -347,7 +335,7 @@ async function runGroup(e){
     }
     renderGroup(players);
   }catch(ex){
-    showMsg("Something went wrong ("+esc(ex.message)+"). The public CORS proxy may be busy — try again in a moment.","err");
+    showMsg("Something went wrong ("+esc(ex.message)+"). Try again in a moment.","err");
   }finally{
     $("#goGroup").disabled=false; $("#spin").classList.remove("on");
   }
