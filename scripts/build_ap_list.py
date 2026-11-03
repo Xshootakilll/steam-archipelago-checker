@@ -14,6 +14,10 @@ import csv, io, json, re, sys, os, urllib.request, datetime
 
 SHEET_ID = "1iuzDTOAvdoNe8Ne8i461qGNucg5OuEoF-Ikqs8aUQZw"
 GAMES_GID = "58422002"
+# Primary app-id source: community mirror on GitHub (games list, reachable from
+# any network incl. GitHub Actions). Steam's own API is a fallback but is blocked
+# from many datacenter IPs (incl. GitHub runners).
+JSNLI_URL = "https://raw.githubusercontent.com/jsnli/steamappidlist/master/data/games_appid.json"
 APPLIST_URL = "https://api.steampowered.com/ISteamApps/GetAppList/v2/"
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # repo root
 
@@ -52,22 +56,29 @@ for row in rows[1:]:
     ap.append({"name": name, "norm": n, "stability": stability, "support": support})
 
 # ---- 2. Steam app list -> normalized name -> lowest appid ----
-# Best-effort: api.steampowered.com isn't reachable from every network (it is
-# from GitHub's Action runners). If it fails, we ship name-only matching and
-# the next Action run fills in the AppIDs.
+# Lowest appid on a name collision = the base game (vs its DLC/soundtrack).
+# If every source fails we ship name-only matching (still works) and the next
+# Action run fills in the AppIDs.
 smap = {}
-try:
-    apps = json.loads(fetch(APPLIST_URL))["applist"]["apps"]
+def build_smap(apps):
     for a in apps:
         nm = norm(a.get("name", ""))
-        if not nm:
-            continue
-        aid = a["appid"]
-        if nm not in smap or aid < smap[nm]:
+        aid = a.get("appid") or a.get("appID")
+        if nm and aid and (nm not in smap or aid < smap[nm]):
             smap[nm] = aid
-    print(f"Steam app list: {len(smap)} unique names")
+
+try:
+    data = json.loads(fetch(JSNLI_URL))
+    apps = data if isinstance(data, list) else data.get("applist", {}).get("apps", [])
+    build_smap(apps)
+    print(f"Steam app list (mirror): {len(smap)} unique names from {len(apps)} apps")
 except Exception as e:
-    print(f"warn: Steam app list unavailable ({e}); shipping name-only, Action will add AppIDs", file=sys.stderr)
+    print(f"warn: mirror unavailable ({e}); trying Steam API", file=sys.stderr)
+    try:
+        build_smap(json.loads(fetch(APPLIST_URL))["applist"]["apps"])
+        print(f"Steam app list (api): {len(smap)} unique names")
+    except Exception as e2:
+        print(f"warn: no Steam app list ({e2}); shipping name-only, Action will add AppIDs", file=sys.stderr)
 
 # ---- 3. aliases overrides ----
 alias_norm = {}
