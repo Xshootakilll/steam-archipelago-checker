@@ -1,26 +1,28 @@
 # Archipelago Steam Checker
 
-A tiny static web tool: **paste your Steam profile link and see which of your games have an [Archipelago](https://archipelago.gg) randomizer world.**
+A tiny static web tool: **see which of your games have an [Archipelago](https://archipelago.gg) randomizer world** — your **Steam** library is auto-detected, and **emulated/console** games (Pokémon, Zelda, SMW…) you tick yourself.
 
 👉 **Live:** https://xshootakilll.github.io/steam-archipelago-checker/
 
-- Matches your **public** Steam library against the community [Archipelago Games sheet](https://docs.google.com/spreadsheets/d/1iuzDTOAvdoNe8Ne8i461qGNucg5OuEoF-Ikqs8aUQZw/htmlview).
-- **100% GitHub** — static GitHub Pages site + a weekly GitHub Action. No backend to run, nothing stored; everything happens in your browser.
-- Your Steam **Game details** must be set to **Public** (Profile → Edit Profile → Privacy Settings → *Game details*) so your library can be read.
+- Checks your **public** Steam library against the community [Archipelago Games sheet](https://docs.google.com/spreadsheets/d/1iuzDTOAvdoNe8Ne8i461qGNucg5OuEoF-Ikqs8aUQZw/htmlview) (all ~870 games, stable/unstable/broken included).
+- **Solo** (one profile) or **Group** (compare 2–8 Steam libraries — who-has-what grid).
+- **Emulated/console AP games aren't on Steam**, so they can't be auto-detected — you tick the ones you have, saved in your browser.
+- **100% GitHub** — static Pages site + a weekly Action. Steam reads go through a tiny Cloudflare Worker relay; nothing else is stored server-side.
+- Your Steam **Game details** must be **Public** (Profile → Edit Profile → Privacy → *Game details*).
 
 ## How it works
 
 | File | Purpose |
 |---|---|
-| `index.html` | The page. Reads your public Steam library through the Worker relay and matches it against `ap_games.json` client-side. |
-| `worker/worker.js` | A tiny Cloudflare Worker that relays read-only Steam Web API calls and holds the API key as a secret (so it's never in the page). |
-| `ap_games.json` | The AP games list + Steam AppIDs. **Auto-generated** — don't edit by hand. |
-| `scripts/build_ap_list.py` | Fetches the AP sheet + Steam's app list and rebuilds `ap_games.json`. |
-| `.github/workflows/update.yml` | Runs the script **weekly** (and on demand) and commits an updated list, so the tool stays current as new AP games are added. |
-| `aliases.json` | Optional manual overrides for tricky name→AppID matches, e.g. `{ "Some Game": 123456 }`. |
+| `index.html` | The page. Auto-matches your Steam library (AppID + edition/remake-tolerant name match) and lets you tick emulated games (localStorage). |
+| `worker/worker.js` | Cloudflare Worker relaying read-only Steam Web API calls; holds the API key as a secret (never in the page). |
+| `ap_games.json` | The live list the page loads: every AP game with `{norms, stability, appid, steam}`. **Auto-generated** — don't edit by hand. |
+| `curated_db.json` | The **verified truth DB** — each game's correct AppID and Steam/emulated flag. Refreshed by `curate_db.py`. |
+| `aliases.json` | Hand overrides `{ "AP Game Name": appid | null }` (null forces non-Steam). Highest precedence. |
+| `scripts/curate_db.py` | Heavy, occasional pass: resolves each game's AppID via jsnli + **validated Steam storesearch**, classifies Steam vs emulated → writes `curated_db.json`. Run locally. |
+| `scripts/build_ap_list.py` | Light weekly build: merges `curated_db.json` + `aliases.json` + the live sheet → `ap_games.json`. New games get a best-guess, flagged for the next curation. |
+| `.github/workflows/update.yml` | Runs `build_ap_list.py` **weekly** and commits `ap_games.json`. |
 
-Your library comes back from Steam's Web API with both AppIDs and names, so matching is exact by AppID first and falls back to normalized name. The site reaches Steam through a tiny **Cloudflare Worker** relay (`worker/worker.js`) that holds a **read-only** Steam Web API key as a secret and only exposes three read-only endpoints (`/owned`, `/resolve`, `/summaries`).
-
-AppIDs in `ap_games.json` add store links and are filled in by the weekly Action from a community app-list mirror (Steam's own app-list API isn't reachable from every network, but the mirror is).
+**The data model** (curate-once, guess-new, re-curate later): `curate_db.py` builds a human-verifiable accurate base; the weekly Action trusts it and only best-guesses games newly added to the sheet. Re-run `curate_db.py` periodically to re-verify and fold in the guesses. Name matching strips editions/remakes/publisher prefixes and apostrophes (so *Resident Evil 2 Remake* == *Resident Evil 2*, *Sid Meier's Civilization V* == *Civilization V*).
 
 *Fan project — not affiliated with Steam, Valve, or Archipelago.*

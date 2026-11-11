@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Archipelago Steam Checker</title>
-<meta name="description" content="Paste Steam profile links to see which of your games have an Archipelago randomizer world — solo or as a group.">
+<meta name="description" content="See which of your games — Steam and emulated/console — have an Archipelago randomizer world. Solo or as a group.">
 <style>
   :root{
     --bg:#14151f; --panel:#1c1e2b; --panel2:#232637; --line:#2e3350;
@@ -13,8 +13,7 @@
   }
   *{box-sizing:border-box}
   body{margin:0;background:radial-gradient(1200px 600px at 50% -10%,#241f3d 0%,var(--bg) 55%);
-    color:var(--text);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
-    min-height:100vh;padding:16px}
+    color:var(--text);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;min-height:100vh;padding:16px}
   .wrap{max-width:920px;margin:0 auto}
   header{text-align:center;padding:28px 0 8px}
   h1{margin:0;font-size:30px;letter-spacing:-.5px;
@@ -39,27 +38,33 @@
   .msg.info{display:block;background:#1f2b3a;border:1px solid #2f4a6b;color:#bcd8ff}
   #summary{display:none;text-align:center;margin:10px 0 0}
   #summary .big{font-size:40px;font-weight:800;color:var(--accent2)}
-  #summary .of{color:var(--dim)}
-  .of{color:var(--dim)}
+  #summary .of,.of{color:var(--dim)}
+  #summary .split{color:var(--dim);font-size:13px;margin-top:4px}
   .bar{height:10px;background:var(--panel2);border-radius:99px;overflow:hidden;margin:14px auto;max-width:420px}
   .bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));width:0;transition:width .6s}
   .controls{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:14px 0 0}
   .seg{background:var(--panel2);border:1px solid var(--line);color:var(--dim);padding:7px 14px;border-radius:99px;cursor:pointer;font-size:13px}
   .seg.on{background:var(--accent);color:#120f22;border-color:var(--accent);font-weight:700}
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;margin-top:14px}
+  .emunote{color:var(--dim);font-size:12.5px;text-align:center;margin:12px 2px 0}
+  .search{margin:12px auto 0;max-width:420px;display:block}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;margin-top:14px}
   .game{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:11px 12px;display:flex;align-items:center;gap:10px}
   .game.miss{opacity:.5}
+  .game.have{border-color:var(--accent2);background:rgba(95,227,195,.06)}
+  .game.emu{cursor:pointer}
   .game .nm{flex:1;min-width:0;font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .game .nm a{color:inherit;text-decoration:none}
   .game .nm a:hover{color:var(--accent2)}
+  .chk{width:18px;height:18px;flex:0 0 auto;border:2px solid var(--line);border-radius:5px;display:grid;place-items:center;font-size:12px;font-weight:800;color:#0b1a16;background:var(--panel)}
+  .chk.on{background:var(--accent2);border-color:var(--accent2)}
   .badge{font-size:10px;padding:2px 7px;border-radius:99px;font-weight:700;white-space:nowrap}
   .b-stable{background:rgba(95,227,195,.15);color:var(--ok)}
   .b-other{background:rgba(255,204,102,.15);color:var(--warn)}
+  .b-broken{background:rgba(255,107,138,.15);color:var(--bad)}
   .spin{display:none;text-align:center;color:var(--dim);padding:18px}
   .spin.on{display:block}
   .spin i{display:inline-block;width:22px;height:22px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:s .8s linear infinite;vertical-align:-5px;margin-right:8px}
   @keyframes s{to{transform:rotate(360deg)}}
-  /* picker */
   .pickhead{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center}
   .pickhead .lbl{font-weight:700}
   .pickbtn{background:linear-gradient(90deg,var(--accent2),#49c7aa);color:#0b1a16}
@@ -69,8 +74,6 @@
   .pickresult{text-align:center;margin-top:16px;font-size:14px}
   .pickresult .pname{font-size:26px;font-weight:800;margin-bottom:8px}
   .pickresult .pname a{color:var(--accent2);text-decoration:none}
-  .pickresult .pname a:hover{text-decoration:underline}
-  /* group matrix */
   .gsum{text-align:center;font-size:15px}
   .gsum b{color:var(--accent2)}
   .nearmiss{margin-top:14px;padding:12px 14px;border-radius:10px;background:rgba(255,204,102,.08);border:1px solid rgba(255,204,102,.25);font-size:13px}
@@ -81,12 +84,10 @@
   #matrix th,#matrix td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:center;white-space:nowrap}
   #matrix th.g,#matrix td.g{text-align:left;position:sticky;left:0;background:var(--panel);max-width:230px;overflow:hidden;text-overflow:ellipsis}
   #matrix td.g a{color:inherit;text-decoration:none}
-  #matrix td.g a:hover{color:var(--accent2)}
   #matrix thead th{color:var(--dim);font-weight:600;max-width:92px;overflow:hidden;text-overflow:ellipsis}
   #matrix tbody tr.all td{background:rgba(95,227,195,.08)}
   #matrix tbody tr.all td.g{background:rgba(95,227,195,.13);color:var(--ok);font-weight:600}
-  .yes{color:var(--ok);font-weight:700}
-  .no{color:#44496a}
+  .yes{color:var(--ok);font-weight:700}.no{color:#44496a}
   .errline{color:var(--bad);font-size:13px;margin-top:12px;text-align:center}
   footer{text-align:center;color:var(--dim);font-size:12px;padding:24px 0}
   footer a{color:var(--accent2)}
@@ -96,7 +97,7 @@
 <div class="wrap">
   <header>
     <h1>Archipelago Steam Checker</h1>
-    <p class="sub">See which of your Steam games have an <b>Archipelago</b> world — solo, or compare a whole group.</p>
+    <p class="sub">Which of your games have an <b>Archipelago</b> world — <b>Steam</b> auto-detected, <b>emulated/console</b> ticked by you. Solo or group.</p>
   </header>
 
   <div class="card">
@@ -104,28 +105,22 @@
       <span class="seg on" data-mode="solo">👤 Solo</span>
       <span class="seg" data-mode="group">👥 Group</span>
     </div>
-
     <form id="formSolo" class="inrow modeblock" data-mode="solo" autocomplete="off">
       <input type="text" id="url" placeholder="steamcommunity.com/id/yourname  (or your SteamID64)" aria-label="Steam profile link">
       <button id="goSolo" type="submit">Check</button>
     </form>
-
     <form id="formGroup" class="modeblock" data-mode="group" style="display:none" autocomplete="off">
       <textarea id="urls" rows="4" placeholder="One Steam link or ID per line (2–8 people):
 steamcommunity.com/id/alice
 76561198000000000
 bob"></textarea>
-      <div class="inrow" style="margin-top:10px;justify-content:flex-end">
-        <button id="goGroup" type="submit">Compare</button>
-      </div>
+      <div class="inrow" style="margin-top:10px;justify-content:flex-end"><button id="goGroup" type="submit">Compare</button></div>
     </form>
-
-    <p class="hint">Each profile's <b>Game details</b> must be <b>Public</b> (Profile → Edit Profile → Privacy Settings → <i>Game details</i>). Nothing is saved — it all runs in your browser. <a href="https://docs.google.com/spreadsheets/d/1iuzDTOAvdoNe8Ne8i461qGNucg5OuEoF-Ikqs8aUQZw/htmlview" target="_blank" rel="noopener">AP games sheet ↗</a></p>
+    <p class="hint">Steam <b>Game details</b> must be <b>Public</b> (Profile → Edit Profile → Privacy). Your emulated ticks are saved only in this browser. <a href="https://docs.google.com/spreadsheets/d/1iuzDTOAvdoNe8Ne8i461qGNucg5OuEoF-Ikqs8aUQZw/htmlview" target="_blank" rel="noopener">AP games sheet ↗</a></p>
     <div id="msg" class="msg"></div>
     <div id="spin" class="spin"><i></i><span id="spinText">Reading library…</span></div>
   </div>
 
-  <!-- game picker -->
   <div id="picker" class="card" style="display:none">
     <div class="pickhead">
       <span class="lbl">🎲 Can't decide?</span>
@@ -142,12 +137,16 @@ bob"></textarea>
   <div id="results" class="card" style="display:none">
     <div id="summary">
       <div><span class="big" id="nOwned">0</span> <span class="of">of <span id="nTotal">0</span> Archipelago games</span></div>
+      <div class="split" id="nSplit"></div>
       <div class="bar"><i id="barFill"></i></div>
     </div>
     <div class="controls">
-      <span class="seg on" data-view="owned" id="segOwned">✅ You own</span>
-      <span class="seg" data-view="all" id="segAll">🎲 All AP games</span>
+      <span class="seg on" data-view="have" id="segHave">✅ You have</span>
+      <span class="seg" data-view="steam" id="segSteam">🎮 Steam</span>
+      <span class="seg" data-view="emu" id="segEmu">🕹️ Emulated</span>
     </div>
+    <input type="text" id="search" class="search" style="display:none" placeholder="filter…">
+    <div class="emunote" id="emuNote" style="display:none">Tick the console/emulated games you have (e.g. via an emulator) — saved in this browser, counts toward your total.</div>
     <div class="grid" id="grid"></div>
   </div>
 
@@ -157,47 +156,49 @@ bob"></textarea>
     <div id="nearMiss"></div>
     <div class="matrixwrap"><table id="matrix"></table></div>
     <div id="groupErr"></div>
+    <div class="emunote">Group mode compares Steam libraries only — emulated games are personal (tick them in Solo).</div>
   </div>
 
   <footer>
-    Fan tool · matches public Steam libraries against the community Archipelago games sheet · auto-updates weekly.<br>
+    Fan tool · matches public Steam libraries + your emulated picks against the community Archipelago games sheet · auto-updates weekly.<br>
     <a id="repo" href="#" target="_blank" rel="noopener">source on GitHub</a> · not affiliated with Steam or Archipelago
   </footer>
 </div>
 
 <script>
-// All Steam reads go through a tiny Cloudflare Worker relay that holds the
-// Steam Web API key as a secret — no key in this page, and no flaky public
-// CORS proxies. Set this to your deployed Worker URL (no trailing slash).
 const RELAY = "https://ap-steam.xshootakilll.workers.dev";
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
-function norm(s){
-  s=(s||"").toLowerCase().replace(/&/g," and ").replace(/[™®©]/g,"").replace(/[^a-z0-9]+/g," ").replace(/\s+/g," ").trim();
-  return s.startsWith("the ")?s.slice(4):s;
-}
 function esc(s){return (s||"").replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 function showMsg(t,cls){const m=$("#msg");m.className="msg "+cls;m.innerHTML=t;}
 function clearMsg(){$("#msg").className="msg";}
 
-// Call a relay endpoint (e.g. "/owned?steamid=…") and return parsed JSON.
-async function relayJSON(path){
-  let lastErr;
-  for(let attempt=0; attempt<2; attempt++){
-    try{
-      const r=await fetch(RELAY+path,{cache:"no-store"});
-      const txt=await r.text();
-      try{ return JSON.parse(txt); }
-      catch(e){ lastErr="bad response from relay"; }
-    }catch(e){ lastErr=e.message; }
+// ---- name normalization / variants (MUST mirror scripts/build_ap_list.py) ----
+const _PREFIX=["sid meiers","tom clancys","disneys","disney","warner bros"];
+const _STRIP=["definitive edition","definite edition","game of the year edition","goty edition","goty","complete edition","enhanced edition","deluxe edition","ultimate edition","gold edition","special edition","anniversary edition","20th anniversary world tour","anniversary world tour","hd remaster","remastered","remaster","remake","redux"];
+function norm1(s){s=(s||"").toLowerCase().replace(/&/g," and ").replace(/['’]/g,"").replace(/[™®©]/g,"").replace(/[^a-z0-9]+/g," ").replace(/\s+/g," ").trim();return s.startsWith("the ")?s.slice(4):s;}
+function reEsc(s){return s.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");}
+function variants(name){
+  const forms=new Set([name||""]); let s=name||"";
+  while(/[\(\[][^\)\]]*[\)\]]\s*$/.test(s)){ s=s.replace(/\s*[\(\[][^\)\]]*[\)\]]\s*$/,""); forms.add(s); }
+  const out=new Set();
+  for(const f of forms){
+    const n=norm1(f); out.add(n); let n2=n;
+    for(const p of _PREFIX) n2=n2.replace(new RegExp("^"+reEsc(p)+" "),"");
+    for(const w of _STRIP) n2=n2.replace(new RegExp("\\b"+reEsc(w)+"\\b","g")," ");
+    n2=n2.replace(/\s+/g," ").trim(); if(n2) out.add(n2);
   }
-  throw new Error(lastErr||"relay unreachable");
+  return [...out].filter(Boolean);
 }
 
-// Resolve a pasted profile (URL / vanity / SteamID64) to a SteamID64, or null.
+async function relayJSON(path){
+  let lastErr;
+  for(let i=0;i<2;i++){ try{ const r=await fetch(RELAY+path,{cache:"no-store"}); const t=await r.text(); try{return JSON.parse(t);}catch(e){lastErr="bad response from relay";} }catch(e){lastErr=e.message;} }
+  throw new Error(lastErr||"relay unreachable");
+}
 async function resolveSteamID(raw){
   raw=raw.trim().replace(/^https?:\/\//,"").replace(/\/+$/,"");
-  let m, vanity=null;
+  let m,vanity=null;
   if((m=raw.match(/steamcommunity\.com\/profiles\/(\d{17})/i))) return m[1];
   if(/^\d{17}$/.test(raw)) return raw;
   if((m=raw.match(/steamcommunity\.com\/id\/([^\/?#]+)/i))) vanity=m[1];
@@ -205,238 +206,199 @@ async function resolveSteamID(raw){
   else if(/^[A-Za-z0-9_.-]{2,64}$/.test(raw)) vanity=raw;
   if(!vanity) return null;
   const j=await relayJSON(`/resolve?vanity=${encodeURIComponent(vanity)}`);
-  return (j&&j.response&&j.response.success===1) ? j.response.steamid : null;
+  return (j&&j.response&&j.response.success===1)?j.response.steamid:null;
 }
-
-async function getOwnedGames(id64){
-  const j=await relayJSON(`/owned?steamid=${id64}`);
-  return (j&&j.response&&j.response.games)||null; // null => private game details
-}
+async function getOwnedGames(id64){ const j=await relayJSON(`/owned?steamid=${id64}`); return (j&&j.response&&j.response.games)||null; }
 
 // ---- state ----
-let MODE="solo", AP=null, MATCH=[], GROUP_PLAYERS=[], GROUP_ROWS=[], PICK_SCOPE="any";
+let MODE="solo", AP=null, SOLO_VIEW="have", STEAM_HAVE=new Set(), EMU_OWNED=new Set(),
+    GROUP_PLAYERS=[], GROUP_ROWS=[], PICK_SCOPE="any";
+const EMU_LS="apchecker_emu_v1";
+function gkey(g){ return g.norms[0]; }
 
 async function loadAP(){
   if(AP) return AP;
   const d=await (await fetch("ap_games.json",{cache:"no-store"})).json();
-  const byNorm=new Map(), byAppid=new Map();
-  for(const g of d.games){ byNorm.set(g.norm,g); if(g.appid) byAppid.set(g.appid,g); }
-  AP={data:d,byNorm,byAppid}; return AP;
-}
-
-// games = [{appid,name}] -> Set of AP game norms owned
-function apMatchSet(games){
-  const s=new Set();
-  for(const og of games){
-    const g=(og.appid&&AP.byAppid.get(og.appid))||AP.byNorm.get(norm(og.name||""));
-    if(g) s.add(g.norm);
+  const byAppid=new Map(), byNorm=new Map(), byKey=new Map();
+  const steam=[], emu=[];
+  for(const g of d.games){
+    byKey.set(gkey(g),g);
+    if(g.appid) byAppid.set(g.appid,g);
+    for(const nv of g.norms) if(!byNorm.has(nv)) byNorm.set(nv,g);
+    (g.steam?steam:emu).push(g);
   }
-  return s;
+  steam.sort((a,b)=>a.name.localeCompare(b.name)); emu.sort((a,b)=>a.name.localeCompare(b.name));
+  AP={data:d,byAppid,byNorm,byKey,steam,emu};
+  try{ EMU_OWNED=new Set(JSON.parse(localStorage.getItem(EMU_LS)||"[]").filter(k=>byKey.has(k))); }catch(e){ EMU_OWNED=new Set(); }
+  return AP;
+}
+function saveEmu(){ try{ localStorage.setItem(EMU_LS,JSON.stringify([...EMU_OWNED])); }catch(e){} }
+
+// owned Steam library -> Set of matched STEAM game keys
+function steamMatchKeys(libGames){
+  const keys=new Set();
+  for(const og of libGames){
+    let g=(og.appid&&AP.byAppid.get(og.appid))||null;
+    if(!g){ for(const v of variants(og.name||"")){ const h=AP.byNorm.get(v); if(h){ g=h; break; } } }
+    if(g&&g.steam) keys.add(gkey(g));
+  }
+  return keys;
 }
 
-// ---- mode switching ----
-function setMode(m){
-  MODE=m;
-  $$(".modes .seg").forEach(s=>s.classList.toggle("on",s.dataset.mode===m));
-  $$(".modeblock").forEach(b=>b.style.display=(b.dataset.mode===m)?"":"none");
-  $("#results").style.display="none";
-  $("#groupResults").style.display="none";
-  $("#picker").style.display="none";
-  clearMsg();
+function badge(g){
+  const s=(g.stability||"").toLowerCase();
+  const cls = s==="stable"?"b-stable" : s.includes("broken")?"b-broken" : "b-other";
+  return `<span class="badge ${cls}">${esc(g.stability||"?")}</span>`;
+}
+function gameRow(g,{owned=false,emu=false,checked=false}={}){
+  const div=document.createElement("div");
+  div.className="game"+(emu?" emu":"")+(owned||checked?" have":(emu?"":" miss"));
+  const nameHtml=g.appid?`<a href="https://store.steampowered.com/app/${g.appid}" target="_blank" rel="noopener">${esc(g.name)}</a>`:esc(g.name);
+  const left = emu ? `<span class="chk ${checked?'on':''}">${checked?'✓':''}</span>` : `<span style="font-size:15px">${owned?'✅':'🎮'}</span>`;
+  div.innerHTML=`${left}<span class="nm">${nameHtml}</span>${badge(g)}`;
+  if(emu){ div.addEventListener("click",ev=>{ if(ev.target.tagName==="A")return; toggleEmu(g); }); }
+  return div;
+}
+function toggleEmu(g){
+  const k=gkey(g);
+  if(EMU_OWNED.has(k)) EMU_OWNED.delete(k); else EMU_OWNED.add(k);
+  saveEmu(); updateSummary(); renderSolo();
 }
 
-// ---- SOLO ----
-function renderSolo(view){
+function updateSummary(){
+  const total=AP.data.count, have=STEAM_HAVE.size+EMU_OWNED.size;
+  $("#nOwned").textContent=have; $("#nTotal").textContent=total;
+  $("#nSplit").innerHTML=`<b style="color:var(--ok)">${STEAM_HAVE.size}</b> Steam · <b style="color:var(--accent)">${EMU_OWNED.size}</b> emulated &nbsp;|&nbsp; ${AP.steam.length} Steam / ${AP.emu.length} emulated games total`;
+  $("#barFill").style.width=Math.min(100,Math.round(have/total*100))+"%";
+  $("#summary").style.display="block";
+}
+function renderSolo(){
   const grid=$("#grid"); grid.innerHTML="";
-  const ownedNorms=new Set(MATCH.map(g=>g.norm));
-  let list = view==="owned" ? MATCH.slice() : AP.data.games.slice();
-  list.sort((a,b)=>a.name.localeCompare(b.name));
-  for(const g of list){
-    const owned=ownedNorms.has(g.norm);
-    const div=document.createElement("div");
-    div.className="game"+(owned?"":" miss");
-    const stable=(g.stability||"").toLowerCase()==="stable";
-    const nameHtml=g.appid?`<a href="https://store.steampowered.com/app/${g.appid}" target="_blank" rel="noopener">${esc(g.name)}</a>`:esc(g.name);
-    div.innerHTML=`<span style="font-size:15px">${owned?"✅":"🎲"}</span>
-      <span class="nm">${nameHtml}</span>
-      <span class="badge ${stable?'b-stable':'b-other'}">${esc(g.stability||'?')}</span>`;
-    grid.appendChild(div);
+  const q=norm1($("#search").value||"");
+  const filt=g=>!q||norm1(g.name).includes(q)||g.norms.some(n=>n.includes(q));
+  $("#segHave").classList.toggle("on",SOLO_VIEW==="have");
+  $("#segSteam").classList.toggle("on",SOLO_VIEW==="steam");
+  $("#segEmu").classList.toggle("on",SOLO_VIEW==="emu");
+  $("#emuNote").style.display = SOLO_VIEW==="emu"?"block":"none";
+  $("#search").style.display = (SOLO_VIEW==="emu"||SOLO_VIEW==="steam")?"block":"none";
+  let list=[];
+  if(SOLO_VIEW==="have"){
+    for(const g of AP.steam) if(STEAM_HAVE.has(gkey(g))) list.push([g,{owned:true}]);
+    for(const g of AP.emu) if(EMU_OWNED.has(gkey(g))) list.push([g,{emu:true,checked:true}]);
+    list.sort((a,b)=>a[0].name.localeCompare(b[0].name));
+    if(!list.length){ grid.innerHTML=`<div class="of" style="grid-column:1/-1;text-align:center">No matches yet — check a Steam profile and/or tick some emulated games.</div>`; return; }
+  }else if(SOLO_VIEW==="steam"){
+    for(const g of AP.steam) if(filt(g)) list.push([g,{owned:STEAM_HAVE.has(gkey(g))}]);
+  }else{
+    for(const g of AP.emu) if(filt(g)) list.push([g,{emu:true,checked:EMU_OWNED.has(gkey(g))}]);
   }
+  const frag=document.createDocumentFragment();
+  for(const [g,opt] of list) frag.appendChild(gameRow(g,opt));
+  grid.appendChild(frag);
 }
-function setView(v){
-  $("#segOwned").classList.toggle("on",v==="owned");
-  $("#segAll").classList.toggle("on",v==="all");
-  renderSolo(v);
-}
+function setView(v){ SOLO_VIEW=v; renderSolo(); }
 
 async function runSolo(e){
   e.preventDefault();
   clearMsg(); $("#results").style.display="none"; $("#picker").style.display="none";
   $("#goSolo").disabled=true; $("#spinText").textContent="Reading your library…"; $("#spin").classList.add("on");
   try{
-    const id64=await resolveSteamID($("#url").value);
-    if(!id64){ showMsg("Couldn't find that profile. Paste your full link like <code>steamcommunity.com/id/yourname</code> or <code>steamcommunity.com/profiles/7656…</code>, or your 17-digit SteamID.","err"); return; }
     await loadAP();
-    const games=await getOwnedGames(id64);
-    if(!games){
-      showMsg("Found the profile, but no games came back — your Steam <b>Game details</b> are <b>Private</b> or <b>Friends-only</b>. Set them to <b>Public</b> (Profile → Edit Profile → Privacy Settings → <i>Game details</i>), give it a moment, then try again.","err");
-      return;
+    const id64=await resolveSteamID($("#url").value);
+    if(id64){
+      const games=await getOwnedGames(id64);
+      if(!games){ showMsg("Found the profile, but no games came back — your Steam <b>Game details</b> are <b>Private</b>. Set them Public, then retry. (You can still tick emulated games below.)","err"); }
+      else { STEAM_HAVE=steamMatchKeys(games); showMsg(`Read <b>${games.length}</b> Steam games — <b>${STEAM_HAVE.size}</b> have AP worlds. Tick your emulated ones too.`,"info"); }
+    } else if($("#url").value.trim()){
+      showMsg("Couldn't read that profile — check the link. You can still browse + tick emulated games below.","err");
+    } else {
+      showMsg("No Steam link entered — browse all AP games and tick the emulated ones you have.","info");
     }
-    MATCH=[...apMatchSet(games)].map(n=>AP.byNorm.get(n));
-    $("#nOwned").textContent=MATCH.length;
-    $("#nTotal").textContent=AP.data.count;
-    $("#barFill").style.width=Math.min(100,Math.round(MATCH.length/AP.data.count*100))+"%";
-    $("#summary").style.display="block";
-    $("#results").style.display="block";
-    setView("owned");
+    updateSummary();
+    $("#results").style.display="block"; setView(STEAM_HAVE.size?"have":"steam");
     $("#pickScope").style.display="none"; $("#pickResult").innerHTML=""; $("#picker").style.display="block";
-    showMsg(`Read <b>${games.length}</b> games from your library — <b>${MATCH.length}</b> have Archipelago worlds.`,"info");
-  }catch(ex){
-    showMsg("Couldn't read that profile ("+esc(ex.message)+"). Try again in a moment.","err");
-  }finally{
-    $("#goSolo").disabled=false; $("#spin").classList.remove("on");
-  }
+  }catch(ex){ showMsg("Something went wrong ("+esc(ex.message)+"). Try again in a moment.","err"); }
+  finally{ $("#goSolo").disabled=false; $("#spin").classList.remove("on"); }
 }
 
-// ---- GROUP ----
+// ---- GROUP (Steam libraries only) ----
 async function runGroup(e){
   e.preventDefault();
   clearMsg(); $("#groupResults").style.display="none"; $("#picker").style.display="none";
   const lines=$("#urls").value.split(/[\n,]+/).map(s=>s.trim()).filter(Boolean);
   if(lines.length<2){ showMsg("Add at least <b>2</b> Steam profiles (one per line).","err"); return; }
-  if(lines.length>8){ showMsg("Keep it to <b>8</b> profiles or fewer — the public proxy gets rate-limited past that.","err"); return; }
+  if(lines.length>8){ showMsg("Keep it to <b>8</b> profiles or fewer.","err"); return; }
   $("#goGroup").disabled=true; $("#spinText").textContent=`Reading ${lines.length} libraries…`; $("#spin").classList.add("on");
   try{
     await loadAP();
     const players=[];
-    for(const line of lines){
-      let id64=null, err=null;
-      try{ id64=await resolveSteamID(line); }catch(ex){ err="lookup failed"; }
-      if(!id64 && !err) err="not found";
-      players.push({input:line, id:id64, name:line, ownedNorms:new Set(), err});
-    }
-    // persona names in one batched call
+    for(const line of lines){ let id=null,err=null; try{ id=await resolveSteamID(line); }catch(ex){ err="lookup failed"; } if(!id&&!err) err="not found"; players.push({input:line,id,name:line,keys:new Set(),err}); }
     const ids=players.filter(p=>p.id).map(p=>p.id);
-    if(ids.length){
-      try{
-        const s=await relayJSON(`/summaries?steamids=${ids.join(",")}`);
-        const byId={}; for(const pl of ((s.response||{}).players||[])) byId[pl.steamid]=pl.personaname;
-        for(const p of players){ if(p.id&&byId[p.id]) p.name=byId[p.id]; }
-      }catch(ex){/* fall back to typed input as the name */}
-    }
-    // owned games per player (sequential — gentler on the proxy)
-    for(const p of players){
-      if(!p.id) continue;
-      try{
-        const games=await getOwnedGames(p.id);
-        if(!games){ p.err="game details private"; continue; }
-        p.ownedNorms=apMatchSet(games);
-      }catch(ex){ p.err="read failed"; }
-    }
+    if(ids.length){ try{ const s=await relayJSON(`/summaries?steamids=${ids.join(",")}`); const by={}; for(const pl of ((s.response||{}).players||[])) by[pl.steamid]=pl.personaname; for(const p of players) if(p.id&&by[p.id]) p.name=by[p.id]; }catch(ex){} }
+    for(const p of players){ if(!p.id) continue; try{ const games=await getOwnedGames(p.id); if(!games){ p.err="game details private"; continue; } p.keys=steamMatchKeys(games); }catch(ex){ p.err="read failed"; } }
     renderGroup(players);
-  }catch(ex){
-    showMsg("Something went wrong ("+esc(ex.message)+"). Try again in a moment.","err");
-  }finally{
-    $("#goGroup").disabled=false; $("#spin").classList.remove("on");
-  }
+  }catch(ex){ showMsg("Something went wrong ("+esc(ex.message)+").","err"); }
+  finally{ $("#goGroup").disabled=false; $("#spin").classList.remove("on"); }
 }
-
 function renderGroup(all){
-  const ok=all.filter(p=>p.id && !p.err);
-  const bad=all.filter(p=>p.err);
-  if(ok.length<2){
-    showMsg("Need at least <b>2</b> readable profiles."+(bad.length?" Couldn't read: "+bad.map(p=>esc(p.input)+" ("+p.err+")").join(", ")+".":"")+" Check the links and that each profile's <b>Game details</b> are Public.","err");
-    return;
-  }
-  GROUP_PLAYERS=ok;
-  const N=ok.length;
-  const map=new Map(); // norm -> {game, owners:Set(index into ok)}
-  ok.forEach((p,i)=>{
-    for(const nm of p.ownedNorms){
-      let e=map.get(nm); if(!e){ e={game:AP.byNorm.get(nm), owners:new Set()}; map.set(nm,e); }
-      e.owners.add(i);
-    }
-  });
-  let rows=[...map.values()].filter(e=>e.game).map(e=>({game:e.game, owners:e.owners, count:e.owners.size}));
-  rows.sort((a,b)=> b.count-a.count || a.game.name.toLowerCase().localeCompare(b.game.name.toLowerCase()));
+  const ok=all.filter(p=>p.id&&!p.err), bad=all.filter(p=>p.err);
+  if(ok.length<2){ showMsg("Need at least <b>2</b> readable profiles."+(bad.length?" Couldn't read: "+bad.map(p=>esc(p.input)+" ("+p.err+")").join(", ")+".":"")+" Check the links and that Game details are Public.","err"); return; }
+  GROUP_PLAYERS=ok; const N=ok.length;
+  const map=new Map();
+  ok.forEach((p,i)=>{ for(const k of p.keys){ let e=map.get(k); if(!e){ e={g:AP.byKey.get(k),owners:new Set()}; map.set(k,e);} e.owners.add(i); } });
+  let rows=[...map.values()].filter(e=>e.g).map(e=>({g:e.g,owners:e.owners,count:e.owners.size}));
+  rows.sort((a,b)=>b.count-a.count||a.g.name.toLowerCase().localeCompare(b.g.name.toLowerCase()));
   GROUP_ROWS=rows;
-
-  const allOwn=rows.filter(r=>r.count===N).length;
-  const multi=rows.filter(r=>r.count>=2).length;
+  const allOwn=rows.filter(r=>r.count===N).length, multi=rows.filter(r=>r.count>=2).length;
   $("#groupSummary").innerHTML=`<div class="gsum"><b>${allOwn}</b> AP game${allOwn===1?"":"s"} all ${N} of you own · <b>${multi}</b> owned by 2+ · <b>${rows.length}</b> across the group</div>`;
-
-  // near-miss (one person short of everyone) — only interesting at 3+
   let nm="";
-  if(N>=3){
-    const near=rows.filter(r=>r.count===N-1);
-    if(near.length){
-      nm=`<div class="nearmiss"><h4>⚡ One person away from a full set</h4>`+
-         near.slice(0,10).map(r=>{
-            const missIdx=[...Array(N).keys()].find(i=>!r.owners.has(i));
-            return `<div class="nm2"><b style="color:var(--text)">${esc(r.game.name)}</b> — everyone but <b style="color:var(--text)">${esc(ok[missIdx].name)}</b></div>`;
-         }).join("")+
-         (near.length>10?`<div class="nm2">…and ${near.length-10} more</div>`:"")+`</div>`;
-    }
-  }
+  if(N>=3){ const near=rows.filter(r=>r.count===N-1); if(near.length){ nm=`<div class="nearmiss"><h4>⚡ One person away from a full set</h4>`+near.slice(0,10).map(r=>{const mi=[...Array(N).keys()].find(i=>!r.owners.has(i));return `<div class="nm2"><b style="color:var(--text)">${esc(r.g.name)}</b> — everyone but <b style="color:var(--text)">${esc(ok[mi].name)}</b></div>`;}).join("")+(near.length>10?`<div class="nm2">…and ${near.length-10} more</div>`:"")+`</div>`; } }
   $("#nearMiss").innerHTML=nm;
-
-  // matrix
-  let html="<thead><tr><th class='g'>Game</th>"+ok.map(p=>`<th title="${esc(p.name)}">${esc(p.name)}</th>`).join("")+"</tr></thead><tbody>";
-  for(const r of rows){
-    const cls=r.count===N?" class='all'":"";
-    const nameHtml=r.game.appid?`<a href="https://store.steampowered.com/app/${r.game.appid}" target="_blank" rel="noopener">${esc(r.game.name)}</a>`:esc(r.game.name);
-    html+=`<tr${cls}><td class='g'>${nameHtml}</td>`+ok.map((p,i)=>r.owners.has(i)?"<td class='yes'>✓</td>":"<td class='no'>·</td>").join("")+"</tr>";
-  }
-  html+="</tbody>";
-  $("#matrix").innerHTML=html;
-
+  let h="<thead><tr><th class='g'>Game</th>"+ok.map(p=>`<th title="${esc(p.name)}">${esc(p.name)}</th>`).join("")+"</tr></thead><tbody>";
+  for(const r of rows){ const cls=r.count===N?" class='all'":""; const nh=r.g.appid?`<a href="https://store.steampowered.com/app/${r.g.appid}" target="_blank" rel="noopener">${esc(r.g.name)}</a>`:esc(r.g.name); h+=`<tr${cls}><td class='g'>${nh}</td>`+ok.map((p,i)=>r.owners.has(i)?"<td class='yes'>✓</td>":"<td class='no'>·</td>").join("")+"</tr>"; }
+  $("#matrix").innerHTML=h+"</tbody>";
   $("#groupErr").innerHTML=bad.length?`<div class="errline">Couldn't read: ${bad.map(p=>esc(p.input)+" ("+p.err+")").join(", ")}</div>`:"";
-  $("#groupResults").style.display="block";
-  $("#pickScope").style.display="inline-flex"; $("#pickResult").innerHTML=""; $("#picker").style.display="block";
+  $("#groupResults").style.display="block"; $("#pickScope").style.display="inline-flex"; $("#pickResult").innerHTML=""; $("#picker").style.display="block";
   showMsg(`Compared <b>${N}</b> ${N===1?"library":"libraries"}.`,"info");
 }
 
 // ---- picker ----
-function notBroken(g){ return g && (g.stability||"").toLowerCase()!=="broken"; }
+function notBroken(g){ return g && !(g.stability||"").toLowerCase().includes("broken"); }
 function pickerPool(){
-  if(MODE==="solo") return MATCH.filter(notBroken).map(g=>({game:g}));
+  if(MODE==="solo"){
+    const pool=[];
+    for(const g of AP.steam) if(STEAM_HAVE.has(gkey(g))&&notBroken(g)) pool.push({g});
+    for(const g of AP.emu) if(EMU_OWNED.has(gkey(g))&&notBroken(g)) pool.push({g});
+    return pool;
+  }
   const N=GROUP_PLAYERS.length;
   const rows=(PICK_SCOPE==="all")?GROUP_ROWS.filter(r=>r.count===N):GROUP_ROWS;
-  return rows.filter(r=>notBroken(r.game)).map(r=>({game:r.game, owners:[...r.owners].map(i=>GROUP_PLAYERS[i].name)}));
+  return rows.filter(r=>notBroken(r.g)).map(r=>({g:r.g,owners:[...r.owners].map(i=>GROUP_PLAYERS[i].name)}));
 }
 function doPick(){
   const pool=pickerPool();
-  if(!pool.length){
-    const why=(MODE==="group"&&PICK_SCOPE==="all")?" — no AP game is owned by everyone":"";
-    $("#pickResult").innerHTML=`<span class="of">Nothing to pick from${why}.</span>`;
-    return;
-  }
+  if(!pool.length){ $("#pickResult").innerHTML=`<span class="of">Nothing to pick from${(MODE==="group"&&PICK_SCOPE==="all")?" — no AP game is owned by everyone":""}.</span>`; return; }
   const c=pool[Math.floor(Math.random()*pool.length)];
-  const nameHtml=c.game.appid?`<a href="https://store.steampowered.com/app/${c.game.appid}" target="_blank" rel="noopener">${esc(c.game.name)}</a>`:esc(c.game.name);
-  const stable=(c.game.stability||"").toLowerCase()==="stable";
-  let sub="";
-  if(c.owners){
-    sub=c.owners.length===GROUP_PLAYERS.length
-      ? `<span class="of">✅ everyone owns it</span>`
-      : `<span class="of">owned by ${esc(c.owners.join(", "))}</span>`;
-  }
-  $("#pickResult").innerHTML=`<div class="pname">${nameHtml}</div>
-    <span class="badge ${stable?'b-stable':'b-other'}">${esc(c.game.stability||'?')}</span>
-    ${sub?`<div style="margin-top:8px">${sub}</div>`:""}`;
+  const nh=c.g.appid?`<a href="https://store.steampowered.com/app/${c.g.appid}" target="_blank" rel="noopener">${esc(c.g.name)}</a>`:esc(c.g.name);
+  let sub=""; if(c.owners){ sub=c.owners.length===GROUP_PLAYERS.length?`<span class="of">✅ everyone owns it</span>`:`<span class="of">owned by ${esc(c.owners.join(", "))}</span>`; }
+  $("#pickResult").innerHTML=`<div class="pname">${nh}</div>${badge(c.g)}${sub?`<div style="margin-top:8px">${sub}</div>`:""}`;
 }
 
 // ---- wiring ----
+function setMode(m){
+  MODE=m; $$(".modes .seg").forEach(s=>s.classList.toggle("on",s.dataset.mode===m));
+  $$(".modeblock").forEach(b=>b.style.display=(b.dataset.mode===m)?"":"none");
+  $("#results").style.display="none"; $("#groupResults").style.display="none"; $("#picker").style.display="none"; clearMsg();
+}
 $$(".modes .seg").forEach(s=>s.addEventListener("click",()=>setMode(s.dataset.mode)));
 $("#formSolo").addEventListener("submit",runSolo);
 $("#formGroup").addEventListener("submit",runGroup);
-$("#segOwned").addEventListener("click",()=>setView("owned"));
-$("#segAll").addEventListener("click",()=>setView("all"));
+$("#segHave").addEventListener("click",()=>setView("have"));
+$("#segSteam").addEventListener("click",()=>setView("steam"));
+$("#segEmu").addEventListener("click",()=>setView("emu"));
+$("#search").addEventListener("input",renderSolo);
 $("#pickBtn").addEventListener("click",doPick);
-$$("#pickScope .seg2").forEach(s=>s.addEventListener("click",()=>{
-  PICK_SCOPE=s.dataset.scope;
-  $$("#pickScope .seg2").forEach(x=>x.classList.toggle("on",x===s));
-  doPick();
-}));
+$$("#pickScope .seg2").forEach(s=>s.addEventListener("click",()=>{ PICK_SCOPE=s.dataset.scope; $$("#pickScope .seg2").forEach(x=>x.classList.toggle("on",x===s)); doPick(); }));
 $("#repo").href="https://github.com/Xshootakilll/steam-archipelago-checker";
 </script>
 </body>

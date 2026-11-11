@@ -1,1 +1,11 @@
-{}
+{
+  "_comment": "Hand-verified overrides (truth). AP sheet name -> Steam appid, or null to force non-Steam. Used by curate_db.py and build_ap_list.py; takes precedence over auto-matching.",
+  "Bloons Tower Defense 6": 960090,
+  "Final Fantasy X": 359870,
+  "DLCQuest": 230050,
+  "Age of Empires II: Definite Edition": 813780,
+  "Kingdom Hearts": 2552430,
+  "Kingdom Hearts 2": 2552430,
+  "DOOM II": 2300,
+  "DOOM 1993": 2280
+}
